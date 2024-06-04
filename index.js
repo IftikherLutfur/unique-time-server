@@ -56,13 +56,13 @@ async function run() {
             })
         }
 
-        const verifyAdmin = async (req,res,next) =>{
+        const verifyAdmin = async (req, res, next) => {
             const email = req.decoded.email;
-            const query = {email:email};
+            const query = { email: email };
             const user = await userCollection.findOne(query)
             const isAdmin = user?.role === "admin"
-            if(!isAdmin){
-                return res.status(403).send({message: 'forbidden access'})
+            if (!isAdmin) {
+                return res.status(403).send({ message: 'forbidden access' })
             }
             next();
         }
@@ -122,11 +122,46 @@ async function run() {
 
         // User Article add apis:
 
-        app.post('/article', async(req,res)=>{
+        app.post('/article',  async (req, res) => {
             const body = req.body;
             const postResult = await articleCollection.insertOne(body)
             res.send(postResult)
         })
+
+    app.get('/article', verifyToken, verifyAdmin, async (req, res) =>{
+        const result = await articleCollection.find(req.body).toArray()
+        res.send(result)
+    })
+
+    app.patch('/article/:id', async (req,res)=>{
+        const id = req.params.id;
+        const filter = {_id : new ObjectId(id)}
+        const updateDocs = {
+            $set:{
+                status:'published'
+            }
+        }
+        const result = await articleCollection.updateOne(filter, updateDocs)
+        res.send(result)
+    })
+
+    app.patch('/article/:id', async (req,res)=>{
+        const id = req.params.id;
+        const filter = {_id: new ObjectId(id)}
+        const updateDocs = {
+            $set:{
+                status:"decline"
+            }
+        }
+        const result = await articleCollection.updateOne(filter,updateDocs)
+       res.send(result);
+    })
+
+    app.delete('/article/:id', async (req,res)=>{
+        const id = req.params.id;
+        const result = await articleCollection.deleteOne({_id: new ObjectId (id)})
+        res.send(result)
+    })
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
