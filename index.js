@@ -30,6 +30,7 @@ async function run() {
 
 
         const userCollection = client.db("uniqueTime").collection("user")
+        const articleCollection = client.db("uniqueTime").collection("article")
 
         app.post('/jwt', async (req, res) => {
             const user = req.body;
@@ -55,6 +56,17 @@ async function run() {
             })
         }
 
+        const verifyAdmin = async (req,res,next) =>{
+            const email = req.decoded.email;
+            const query = {email:email};
+            const user = await userCollection.findOne(query)
+            const isAdmin = user?.role === "admin"
+            if(!isAdmin){
+                return res.status(403).send({message: 'forbidden access'})
+            }
+            next();
+        }
+
         app.post('/users', async (req, res) => {
             const user = req.body;
             // insert user's email if the email doesn't existing
@@ -70,7 +82,7 @@ async function run() {
         })
 
 
-        app.get('/users', verifyToken, async (req, res) => {
+        app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
             // console.log(req.headers);
             const result = await userCollection.find(req.body).toArray()
             res.send(result)
@@ -79,7 +91,7 @@ async function run() {
         app.get('/users/admin/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
             if (email !== req.decoded.email) {
-                res.status(401).send({ message: 'unauthorize access' })
+                res.status(403).send({ message: 'forbidden access' })
             }
             const query = { email: email }
             const user = await userCollection.findOne(query)
@@ -90,7 +102,7 @@ async function run() {
             res.send({ admin })
         })
 
-        app.patch('/users/admin/:id', verifyToken, async (req, res) => {
+        app.patch('/users/admin/:id', verifyToken, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) }
             const updateDocs = {
@@ -102,11 +114,19 @@ async function run() {
             res.send(result)
         })
 
-        app.delete('/users/:id', verifyToken, async (req, res) => {
+        app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
             const result = await userCollection.deleteOne({ _id: new ObjectId(req.params.id) })
             res.send(result)
         })
 
+
+        // User Article add apis:
+
+        app.post('/article', async(req,res)=>{
+            const body = req.body;
+            const postResult = await articleCollection.insertOne(body)
+            res.send(postResult)
+        })
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
