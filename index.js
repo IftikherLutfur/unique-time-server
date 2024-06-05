@@ -7,7 +7,10 @@ require('dotenv').config();
 const port = process.env.PORT || 5000;
 
 // middleware
-app.use(cors());
+app.use(cors({
+    origin:['http://localhost:5173'],
+    credentials: true
+}));
 app.use(express.json());
 
 
@@ -128,12 +131,12 @@ async function run() {
             res.send(postResult)
         })
 
-    app.get('/article', verifyToken, verifyAdmin, async (req, res) =>{
+    app.get('/article',async (req, res) =>{
         const result = await articleCollection.find(req.body).toArray()
         res.send(result)
     })
 
-    app.patch('/article/:id', async (req,res)=>{
+    app.patch('/article/:id', verifyToken, verifyAdmin, async (req,res)=>{
         const id = req.params.id;
         const filter = {_id : new ObjectId(id)}
         const updateDocs = {
@@ -145,7 +148,7 @@ async function run() {
         res.send(result)
     })
 
-    app.patch('/article/:id', async (req,res)=>{
+    app.patch('/article/admin/:id', verifyToken, verifyAdmin, async (req,res)=>{
         const id = req.params.id;
         const filter = {_id: new ObjectId(id)}
         const updateDocs = {
@@ -157,7 +160,7 @@ async function run() {
        res.send(result);
     })
 
-    app.delete('/article/:id', async (req,res)=>{
+    app.delete('/article/:id', verifyToken, verifyAdmin, async (req,res)=>{
         const id = req.params.id;
         const result = await articleCollection.deleteOne({_id: new ObjectId (id)})
         res.send(result)
