@@ -32,8 +32,9 @@ async function run() {
 
 
 
-        const userCollection = client.db("uniqueTime").collection("user")
-        const articleCollection = client.db("uniqueTime").collection("article")
+        const userCollection = client.db("uniqueTime").collection("user");
+        const articleCollection = client.db("uniqueTime").collection("article");
+        const publisherCollection = client.db("uniqueTime").collection('publishers')
 
         app.post('/jwt', async (req, res) => {
             const user = req.body;
@@ -123,7 +124,7 @@ async function run() {
         })
 
 
-        // User Article add apis:
+        // User Article add apis for user:
 
         app.post('/article',  async (req, res) => {
             const body = req.body;
@@ -135,7 +136,7 @@ async function run() {
         const result = await articleCollection.find(req.body).toArray()
         res.send(result)
     })
-
+    //  update  article only by Admin
     app.patch('/article/:id', verifyToken, verifyAdmin, async (req,res)=>{
         const id = req.params.id;
         const filter = {_id : new ObjectId(id)}
@@ -164,6 +165,13 @@ async function run() {
         const id = req.params.id;
         const result = await articleCollection.deleteOne({_id: new ObjectId (id)})
         res.send(result)
+    })
+ 
+    // Add publisher by admin:
+    app.post('/publisher', async (req, res)=>{
+        const publisher = req.body;
+        const result = await publisherCollection.insertOne(publisher)
+        res.send(result);
     })
 
         // Send a ping to confirm a successful connection
