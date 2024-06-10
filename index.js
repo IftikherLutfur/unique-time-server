@@ -127,12 +127,11 @@ async function run() {
         })
 
         app.patch('/user/update/:email', async (req, res) => {
-            const {premiumTaken} = req.body
             const email = req.params.email;
             const filter = { email: email }
             const updateDocs = {
                 $set: {
-                    isPremium: premiumTaken
+                    isPremium: "yes"
                 }
             }
             const result = await userCollection.updateOne(filter, updateDocs)
@@ -252,28 +251,31 @@ async function run() {
             res.send(result);
         })
 
-        // app.put('/article/view/:id', async (req, res) => {
-        //     const count = req.body;
-        //     const id = req.params.id;
-        //     const counts = parseInt(count + 1)
-        //     const filter = { _id: new ObjectId(id) }
-        //     const optional = { upsert: true }
-        //     const updateDocs = {
-        //         $set: {
-        //             count: counts
-        //         }
-        //     }
-        //     const result = await articleCollection.updateOne(filter, optional, updateDocs)
-        //     res.send(result)
-        // })
+        app.get('/articles/search',verifyToken, async (req, res) => {
+      try {
+        const { title, publisher, tags, status = 'approved' } = req.query; // default status to 'approved'
+        let query = { status }; // ensure we are only fetching approved articles by default
+    
+        if (title) {
+          query.title = { $regex: title, $options: 'i' };
+        }
+    
+        if (publisher) {
+          query.publisher = publisher;
+        }
+    
+        if (tags) {
+          query.tags = { $in: tags.split(",") }; 
+        }
+    
+        const articles = await articlesCollection.find(query).toArray();
+        res.send(articles);
+      } catch (error) {
+        console.error('Error filtering articles:', error);
+        res.status(500).send({ message: 'Internal Server Error', error });
+      }
+    });
 
-        // app.patch('/article/update/:id', async (req,res)=>{
-        //     const id = req.params.id;
-        //     const query = {_id: new ObjectId(id)}
-        //     const updateDocs = {
-
-        //     }
-        // })
 
         app.delete('/article/:id', async (req, res) => {
             const id = req.params.id;
@@ -329,11 +331,7 @@ async function run() {
             res.send(result);
         })
 
-        // app.get('/payment/:id', async(req,res)=>{
-        //     const id = req.params.id;
-        //     const query = {_id: new ObjectId(id)}
-        //     const result = await 
-        // })
+        
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
