@@ -37,11 +37,13 @@ async function run() {
         const articleCollection = client.db("uniqueTime").collection("article");
         const publisherCollection = client.db("uniqueTime").collection('publishers')
         const premiumCollection = client.db("uniqueTime").collection('premium')
+        const premiumCard = client.db("uniqueTime").collection('premiumCard')
         const cancelCollection = client.db("uniqueTime").collection('cancel')
 
         app.post('/jwt', async (req, res) => {
             const user = req.body;
             const token = jwt.sign(user, process.env.JSON_WEB_TOKEN, { expiresIn: '24h' })
+            console.log(token);
             // console.log(token);
             res.send({ token })
         })
@@ -62,7 +64,7 @@ async function run() {
                 next();
             })
         }
-
+        //  Verify Admin
         const verifyAdmin = async (req, res, next) => {
             const email = req.decoded.email;
             const query = { email: email };
@@ -94,7 +96,7 @@ async function run() {
             const result = await userCollection.find(req.body).toArray()
             res.send(result)
         })
-        app.get('/user', async (req, res) => {
+        app.get('/user', verifyToken, async (req, res) => {
             // console.log(req.headers);
             const result = await userCollection.find(req.body).toArray()
             res.send(result)
@@ -126,8 +128,46 @@ async function run() {
             res.send(result)
         })
 
-        app.patch('/user/update/:email', async (req, res) => {
+        // isPremium-Start
+        const premiumVerify = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email };
+            const user = await userCollection.findOne(query)
+            const isPremium = user?.isPremium === "yes"
+            if (!isPremium) {
+                return res.status(403).send({ message: 'forbidden access' })
+            }
+            next();
+        }
+
+        app.get('/premiumCard', verifyToken, premiumVerify, async (req, res) => {
+            const result = await premiumCard.find().toArray()
+            res.send(result)
+        })
+        app.get('/premiums/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }
+            const result = await premiumCard.findOne(query)
+            res.send(result)
+        })
+
+        app.get('/premiumCard/card/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
+            if (email !== req.decoded.email) {
+                return res.status(403).send({ message: "forbidden access" })
+            }
+            const query = { email: email }
+            const premium = await userCollection.findOne(query)
+            let isPremium = false;
+            if (premium) {
+                isPremium = premium.isPremium === "yes"
+            }
+            res.send({ isPremium })
+        })
+
+        app.patch('/isPremium/update/:email', verifyToken, async (req, res) => {
+            const email = req.params.email;
+            console.log(email)
             const filter = { email: email }
             const updateDocs = {
                 $set: {
@@ -138,24 +178,7 @@ async function run() {
             res.send(result)
         })
 
-
-        // app.patch('/user/update/:email', async (req, res)=> {
-        //     const { email } = req.params;
-        //     // console.log(email);
-        //     const { premiumTaken } = req.body;
-      
-        //       const result = await userCollection.updateOne({ email: email },
-        //          {
-        //              $set: { isPremium: premiumTaken } 
-        //         });
-        //       if (result.modifiedCount > 0) {
-        //         res.status(200).send({ message: 'User premium status updated' });
-        //       } else {
-        //         res.status(404).send({ message: 'User not found or premi'})
-        //       }
-
-
-        //       })
+        // isPremium-End
 
         app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
             const result = await userCollection.deleteOne({ _id: new ObjectId(req.params.id) })
@@ -251,30 +274,30 @@ async function run() {
             res.send(result);
         })
 
-        app.get('/articles/search',verifyToken, async (req, res) => {
-      try {
-        const { title, publisher, tags, status = 'approved' } = req.query; // default status to 'approved'
-        let query = { status }; // ensure we are only fetching approved articles by default
-    
-        if (title) {
-          query.title = { $regex: title, $options: 'i' };
-        }
-    
-        if (publisher) {
-          query.publisher = publisher;
-        }
-    
-        if (tags) {
-          query.tags = { $in: tags.split(",") }; 
-        }
-    
-        const articles = await articlesCollection.find(query).toArray();
-        res.send(articles);
-      } catch (error) {
-        console.error('Error filtering articles:', error);
-        res.status(500).send({ message: 'Internal Server Error', error });
-      }
-    });
+        //     app.get('/articles/search',verifyToken, async (req, res) => {
+        //   try {
+        //     const { title, publisher, tags, status = 'approved' } = req.query; // default status to 'approved'
+        //     let query = { status }; // ensure we are only fetching approved articles by default
+
+        //     if (title) {
+        //       query.title = { $regex: title, $options: 'i' };
+        //     }
+
+        //     if (publisher) {
+        //       query.publisher = publisher;
+        //     }
+
+        //     if (tags) {
+        //       query.tags = { $in: tags.split(",") }; 
+        //     }
+
+        //     const articles = await articlesCollection.find(query).toArray();
+        //     res.send(articles);
+        //   } catch (error) {
+        //     console.error('Error filtering articles:', error);
+        //     res.status(500).send({ message: 'Internal Server Error', error });
+        //   }
+        // });
 
 
         app.delete('/article/:id', async (req, res) => {
@@ -325,13 +348,13 @@ async function run() {
             })
         })
 
-        app.post('/cancel', async (req,res)=>{
+        app.post('/cancel', async (req, res) => {
             const body = req.body;
             const result = await cancelCollection.insertOne(body);
             res.send(result);
         })
 
-        
+
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
