@@ -9,7 +9,7 @@ const port = process.env.PORT || 5000;
 
 // middleware
 app.use(cors({
-    origin: ['http://localhost:5173', "https://unique-time.web.app/"],
+    origin: ['http://localhost:5173', "https://unique-time.web.app"],
     credentials: true
 }));
 app.use(express.json());
@@ -202,9 +202,14 @@ async function run() {
         })
 
         app.get('/article', async (req, res) => {
-            const result = await articleCollection.find(req.body).toArray()
-            res.send(result)
-        })
+            try {
+                const articles = await Article.find({ status: "published" })
+                    .sort({ createdAt: -1 }); // Sorts latest articles first
+                res.json(articles);
+            } catch (error) {
+                res.status(500).json({ message: "Error fetching articles", error });
+            }
+        });
         // Get article for the search
         // app.get('/article', async (req, res) => {
         //     const filter = req.query;
@@ -222,10 +227,27 @@ async function run() {
         //     res.send(result)
         // })
         app.get('/article/get/:id', async (req, res) => {
-            const id = req.params.id;
-            const result = await articleCollection.findOne({ _id: new ObjectId(id) })
-            res.send(result)
-        })
+            try {
+                const id = req.params.id;
+        
+                // Check if id is a valid ObjectId
+                if (!ObjectId.isValid(id)) {
+                    return res.status(400).json({ error: "Invalid article ID" });
+                }
+        
+                const result = await articleCollection.findOne({ _id: new ObjectId(id) });
+        
+                if (!result) {
+                    return res.status(404).json({ error: "Article not found" });
+                }
+        
+                res.send(result);
+            } catch (error) {
+                console.error("Error fetching article:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        });
+        
         app.patch('/article/update/:email', async (req, res) => {
             const body = req.body;
             const email = req.params.email;
